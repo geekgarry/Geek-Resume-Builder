@@ -139,6 +139,7 @@ export function UserCenter({ user, onClose, onUpdate, currentResumeId, onSelectR
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">用户名</label>
                   <input
+                    placeholder="请输入用户名(字母、数字或下划线，3-20字符)"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -208,6 +209,7 @@ export function UserCenter({ user, onClose, onUpdate, currentResumeId, onSelectR
                       {editingResumeId === resume.id ? (
                         <div className="flex items-center gap-2 flex-1 max-w-xs">
                           <input 
+                            placeholder="请输入简历标题"
                             type="text" 
                             value={editingTitle}
                             onChange={(e) => setEditingTitle(e.target.value)}
@@ -215,10 +217,10 @@ export function UserCenter({ user, onClose, onUpdate, currentResumeId, onSelectR
                             autoFocus
                             onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle(resume.id)}
                           />
-                          <button onClick={() => handleSaveTitle(resume.id)} className="text-green-600 hover:bg-green-50 p-1 rounded">
+                          <button title="保存" onClick={() => handleSaveTitle(resume.id)} className="text-green-600 hover:bg-green-50 p-1 rounded">
                             <Check size={16} />
                           </button>
-                          <button onClick={() => setEditingResumeId(null)} className="text-gray-400 hover:bg-gray-100 p-1 rounded">
+                          <button title="取消" onClick={() => setEditingResumeId(null)} className="text-gray-400 hover:bg-gray-100 p-1 rounded">
                             <X size={16} />
                           </button>
                         </div>

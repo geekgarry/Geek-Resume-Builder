@@ -132,9 +132,9 @@ export const aiService = {
   },
 
   /**
-   * AI 岗位分析 & 简历匹配分析
+   * AI 岗位分析 & 简历匹配分析 & AI 生成新简历
    */
-  async analyzeContent(type: 'job' | 'match', payload: { text?: string, fileData?: string, mimeType?: string, resumeData?: any }): Promise<string> {
+  async analyzeContent(type: 'job' | 'match' | 'generate', payload: { text?: string, fileData?: string, mimeType?: string, resumeData?: any }): Promise<string> {
     const token = localStorage.getItem('auth_token');
     if (!token) throw new Error("请先登录");
 
