@@ -123,8 +123,17 @@ self.onmessage = async (e) => {
           const sliceBlob = await sliceCanvas.convertToBlob({
             type: "image/png",
           });
-          const reader = new FileReaderSync();
-          const sliceDataUrl = reader.readAsDataURL(sliceBlob);
+          // const reader = new FileReaderSync();
+          // const sliceDataUrl = reader.readAsDataURL(sliceBlob);
+          // 使用 FileReader 将 Blob 转换为 Data URL，因为 jsPDF 的 addImage 需要 Data URL 格式的图像数据
+          // 在 Worker 中不能使用 FileReaderSync，因为它是同步的，会阻塞线程；而 FileReader 是异步的，适合在 Worker 中使用。
+          // // 使用 FileReader 将 Blob 转换为 Data URL，因为 jsPDF 的 addImage 需要 Data URL 格式的图像数据
+          const sliceDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(sliceBlob);
+          });
 
           const pdfSliceHeight = sliceHeight / scale;
           pdf.addImage(

@@ -154,7 +154,8 @@ export function TemplateManagement() {
         sidebarBackgroundColor,
         mainBlocks,
         sidebarBlocks
-      }
+      },
+      readonly: Boolean(editingTemplateId) // 编辑已有模板则保持 readonly 状态，创建新模板则默认非 readonly
     };
 
     if (editingTemplateId) {
@@ -229,7 +230,7 @@ export function TemplateManagement() {
       <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col font-sans">
         <header className="bg-white border-b px-4 md:px-6 py-4 flex flex-wrap justify-between items-center shadow-sm gap-4">
           <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={() => setIsBuilding(false)} className="text-gray-500 hover:text-gray-800 p-1 rounded hover:bg-gray-100"><X size={24} /></button>
+            <button title="关闭编辑器" onClick={() => setIsBuilding(false)} className="text-gray-500 hover:text-gray-800 p-1 rounded hover:bg-gray-100"><X size={24} /></button>
             <h2 className="text-lg md:text-xl font-bold text-gray-800">{editingTemplateId ? '编辑简历模板' : '创建自定义动态模板'}</h2>
           </div>
           <button onClick={handleSaveTemplate} className="flex items-center gap-2 bg-blue-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors text-sm md:text-base">
@@ -352,20 +353,20 @@ export function TemplateManagement() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700">主题颜色</label>
-                  <input type="color" value={themeColor} onChange={e => setThemeColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                  <input placeholder="选择主题颜色" type="color" value={themeColor} onChange={e => setThemeColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
                 </div>
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700">字体颜色</label>
-                  <input type="color" value={fontColor} onChange={e => setFontColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                  <input placeholder="选择字体颜色" type="color" value={fontColor} onChange={e => setFontColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
                 </div>
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700">背景颜色</label>
-                  <input type="color" value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                  <input placeholder="选择背景颜色" type="color" value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
                 </div>
                 {layoutType === 'two-column' && (
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-gray-700">侧边栏背景</label>
-                    <input type="color" value={sidebarBackgroundColor} onChange={e => setSidebarBackgroundColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                    <input placeholder="选择侧边栏背景颜色" type="color" value={sidebarBackgroundColor} onChange={e => setSidebarBackgroundColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
                   </div>
                 )}
                 
@@ -464,22 +465,22 @@ export function TemplateManagement() {
               <div className="p-5">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-bold text-lg text-gray-800">{template.name}</h3>
-                  <div className="flex items-center gap-1">
-                    <button 
+                  {template.readonly && (<div className="flex items-center gap-1">
+                    <button type="button"
                       onClick={() => handleEdit(template)}
                       className="text-gray-400 hover:text-blue-500 transition-colors p-1"
                       title="编辑模板"
                     >
                       <Edit size={18} />
                     </button>
-                    {template.readonly && (<button 
+                    <button type="button"
                       onClick={() => handleDelete(template.id)}
                       className="text-gray-400 hover:text-red-500 transition-colors p-1"
                       title="删除模板"
                     >
                       <Trash2 size={18} />
-                    </button>)}
-                  </div>
+                    </button>
+                  </div>)}
                 </div>
                 <p className="text-sm text-gray-500 line-clamp-2">{template.description}</p>
               </div>

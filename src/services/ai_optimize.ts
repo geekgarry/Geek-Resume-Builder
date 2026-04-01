@@ -133,9 +133,14 @@ export const aiService = {
 
   /**
    * AI 岗位分析 & 简历匹配分析 & AI 生成新简历
+   * type: 'job' | 'match' | 'generate' 分别对应岗位分析、匹配分析和根据岗位描述生成新简历
+   * payload: 包含文本输入、文件输入、简历数据等，根据不同分析类型可能需要不同的字段
+   * 返回值：分析结果文本或生成的新简历数据，具体格式由后端定义
    */
-  async analyzeContent(type: 'job' | 'match' | 'generate', payload: { text?: string, fileData?: string, mimeType?: string, resumeData?: any }): Promise<string> {
-    const token = localStorage.getItem('auth_token');
+  async analyzeContent(type: 'job' | 'match' | 'generate', payload: { text?: string, fileData?: string, mimeType?: string, resumeData?: any, token?: string }): Promise<string> {
+    // 如果前端传入了 token（例如在 Worker 中），优先使用传入的 token；否则从 localStorage 中获取当前用户的 token。
+    // 这种设计允许在 Worker 中也能进行认证请求，而不需要依赖主线程的 localStorage。
+    const token = payload.token || localStorage.getItem('auth_token');
     if (!token) throw new Error("请先登录");
 
     const response = await fetch(`${API_URL}/ai/analyze`, {
@@ -223,6 +228,7 @@ export const aiService = {
         }
       }
     } catch (error) {
+      // 在流式分析过程中，如果发生任何错误（无论是网络错误、服务器错误还是数据解析错误），都应该捕获并记录错误日志，以便开发者能够诊断问题。同时，抛出错误让调用方（组件）能够显示友好的错误提示给用户，告知他们分析失败的原因。
       console.error("AI 行业/岗位分析请求失败:", error);
       throw error;
     }

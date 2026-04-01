@@ -14,7 +14,8 @@ export default defineConfig(({mode}) => {
     //   },
     // },
     worker: {
-      format: 'esm', // 确保这是正确的格式，如果你的 Worker 是模块化的
+      // 确保这是正确的格式，如果你的 Worker 是模块化的
+      format: 'es', // 使用正确的格式 "es" 以兼容 Vite 配置
     },
     plugins: [react(), tailwindcss()],
     define: {

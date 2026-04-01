@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ResumeData, User, defaultResumeData, ResumeTemplate } from "./types";
 import { storageService } from "./services/storage";
 import { apiService } from "./services/api";
 import { ResumeEditor } from "./components/ResumeEditor";
 import { ResumePreview } from "./components/ResumePreview";
 import { AuthModal } from "./components/AuthModal";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { UserCenter } from "./components/UserCenter";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { AnalysisModule } from "./components/AnalysisModule";
@@ -33,9 +34,9 @@ import {
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
 import html2pdf from "html2pdf";
-import { saveAs } from "file-saver";
+// import { saveAs } from "file-saver";
 // import * as FileSaver from 'file-saver';
-import { Document, Packer, Paragraph, TextRun } from "docx";
+// import { Document, Packer, Paragraph, TextRun } from "docx";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<"app" | "admin">("app");
@@ -48,7 +49,7 @@ export default function App() {
   const [isUserCenterOpen, setIsUserCenterOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  // 增加以下状态：
+  // 增加以下状态：isDrawerOpen 用于控制侧边栏抽屉的显示，isTemplateModalOpen 用于控制简历模板选择弹框的显示，activePage 用于区分当前是简历编辑页还是分析页，以便在页面切换时进行相应的逻辑处理（例如提示用户正在运行的 AI 任务）。这些状态将帮助我们更好地管理 UI 的交互和用户体验。
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [activePage, setActivePage] = useState<"builder" | "analysis">(
@@ -58,6 +59,137 @@ export default function App() {
   // 在 App 组件内部增加下载弹框状态：
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
+  // 增加 AI 任务管理相关状态和函数，包括后台任务列表、任务面板开关、离开确认对话框状态，以及 Worker 引用。通过这些状态和函数，可以在用户执行 AI 生成新简历的操作时，动态管理任务状态，并在用户尝试离开当前页面时弹出确认对话框，提示用户任务将继续在后台运行。
+  type BackgroundTask = {
+    id: string;
+    title: string;
+    status: 'running' | 'completed' | 'failed';
+    message: string;
+  };
+
+  // Worker 引用，用于管理 Worker 实例的生命周期（例如终止 Worker）。当启动新的 AI 任务时，如果已有 Worker 在运行，会先终止旧的 Worker，确保不会有多个 Worker 同时运行导致资源浪费或冲突。
+  const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
+  const [taskPanelOpen, setTaskPanelOpen] = useState(false);
+  const [leaveConfirm, setLeaveConfirm] = useState<{
+    target: 'builder' | 'analysis';
+    active: boolean;
+  } | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+
+  const runningTasksCount = backgroundTasks.filter((t) => t.status === 'running').length;
+
+  // 添加后台任务管理函数，包括添加任务、更新任务状态和移除任务。这些函数会被 startBackgroundTask 调用，以便在 AI 生成新简历的过程中动态管理任务状态，并在 UI 上显示相应的进度和结果。
+  const addBackgroundTask = (task: BackgroundTask) => {
+    setBackgroundTasks((prev) => [...prev, task]);
+  };
+
+  const updateBackgroundTask = (taskId: string, status: BackgroundTask['status'], message: string) => {
+    setBackgroundTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status, message } : t)));
+  };
+
+  const removeBackgroundTask = (taskId: string) => {
+    setBackgroundTasks((prev) => prev.filter((t) => t.id !== taskId));
+  };
+
+  // 启动后台 AI 任务，创建 Worker 实例并监听消息，更新任务状态
+  const startBackgroundTask = async (taskId: string, payload: any) => {
+    if (workerRef.current) {
+      workerRef.current.terminate();
+    }
+
+    // 创建新的 Worker 实例，并将其引用保存在 workerRef 中，以便后续管理（例如终止 Worker）。Worker 的代码位于 src/workers/backgroundAITask.ts，这个 Worker 负责处理 AI 生成新简历的任务，接收来自主线程的消息，调用 aiService 进行分析和生成，然后将结果返回给主线程。
+    const worker = new Worker(
+      new URL('./workers/backgroundAITask.ts', import.meta.url),
+      { type: "module" },
+    );
+    workerRef.current = worker;
+
+    // 监听 Worker 消息，更新任务状态，当所有任务完成时自动关闭任务面板，并根据 Worker 返回的结果在主线程中调用 API 保存生成的新简历。Worker 通过 postMessage 将结果发送回主线程，主线程根据结果更新 UI 状态，并在任务完成后终止 Worker 实例，释放资源。
+    worker.onmessage = async (event) => {
+      const { type, result } = event.data;
+      if (type === 'AI_RESUME_TASK_RESULT') {
+        if (result.success) {
+          // 在主线程中调用 API 保存简历
+          try {
+            const newResume = await apiService.createResume(
+              "AI优化的简历",
+              result.data,
+            );
+            updateBackgroundTask(taskId, 'completed', 'AI 任务已完成，简历已保存');
+            alert('AI优化的新简历已保存到您的简历列表中');
+          } catch (err) {
+            console.error(err);
+            updateBackgroundTask(taskId, 'failed', '保存简历失败');
+            alert('保存简历失败');
+          }
+        } else {
+          updateBackgroundTask(taskId, 'failed', result.error || 'AI 生成新简历失败');
+          alert(result.error || 'AI 生成新简历失败');
+        }
+        worker.terminate();
+        workerRef.current = null;
+      }
+    };
+
+    worker.onerror = (err) => {
+      updateBackgroundTask(taskId, 'failed', err.message || 'Worker出错');
+      worker.terminate();
+      workerRef.current = null;
+      alert('AI 生成新简历失败');
+    };
+
+    worker.postMessage({
+      type: 'START_AI_RESUME_TASK',
+      payload,
+    });
+  };
+
+  // 确认离开当前页面，切换到目标页面并保持任务面板打开
+  const handleConfirmLeave = () => {
+    if (!leaveConfirm) return;
+    setActivePage(leaveConfirm.target);
+    setLeaveConfirm(null);
+    setTaskPanelOpen(true);
+  };
+
+  // 取消离开，继续等待任务完成
+  const handleCancelLeave = () => {
+    setLeaveConfirm(null);
+  };
+
+  // 监听后台任务状态，当所有任务完成时自动关闭任务面板
+  useEffect(() => {
+    if (runningTasksCount === 0 && taskPanelOpen && backgroundTasks.length > 0) {
+      const timer = setTimeout(() => {
+        setTaskPanelOpen(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [runningTasksCount, taskPanelOpen, backgroundTasks.length]);
+
+  // 页面切换时，如果当前有正在运行的 AI 任务，弹出确认对话框，提示用户离开后任务将继续在后台运行，并询问是否确认离开当前页面。
+  // 如果用户确认离开，则切换页面并保持任务面板打开；如果用户取消，则留在当前页面继续等待任务完成。
+  const switchPage = (page: 'builder' | 'analysis') => {
+    if (activePage === 'analysis' && page !== 'analysis' && runningTasksCount > 0) {
+      setLeaveConfirm({ target: page, active: true });
+      return;
+    }
+    setActivePage(page);
+  };
+
+  // 监听 Worker 消息，更新任务状态，当所有任务完成时自动关闭任务面板
+  useEffect(() => {
+    if (runningTasksCount > 0) setTaskPanelOpen(true);
+  }, [runningTasksCount]);
+
+  // 监听 Worker 消息，更新任务状态
+  useEffect(() => {
+    if (backgroundTasks.every((task) => task.status !== 'running')) {
+      setTaskPanelOpen(false);
+    }
+  }, [backgroundTasks]);
+
+  // 加载简历模板列表，在用户切换到 app 视图时触发，避免在 admin 视图加载不必要的数据
   useEffect(() => {
     if (currentView === "app") {
       const loadTpls = async () => {
@@ -594,13 +726,13 @@ export default function App() {
           {/* 桌面端导航菜单 */}
           <div className="hidden md:flex items-center gap-2 border-l pl-4 ml-2">
             <button
-              onClick={() => setActivePage("builder")}
+              onClick={() => switchPage("builder")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePage === "builder" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}
             >
               简历制作
             </button>
             <button
-              onClick={() => setActivePage("analysis")}
+              onClick={() => switchPage("analysis")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePage === "analysis" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}
             >
               岗位与行业分析
@@ -705,7 +837,7 @@ export default function App() {
           <div className="flex-1 overflow-y-auto py-4">
             <button
               onClick={() => {
-                setActivePage("builder");
+                switchPage("builder");
                 setIsDrawerOpen(false);
               }}
               className={`w-full flex items-center justify-between px-6 py-3 text-left ${activePage === "builder" ? "bg-blue-50 text-blue-600 font-medium border-r-4 border-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
@@ -717,7 +849,7 @@ export default function App() {
             </button>
             <button
               onClick={() => {
-                setActivePage("analysis");
+                switchPage("analysis");
                 setIsDrawerOpen(false);
               }}
               className={`w-full flex items-center justify-between px-6 py-3 text-left ${activePage === "analysis" ? "bg-blue-50 text-blue-600 font-medium border-r-4 border-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
@@ -861,8 +993,23 @@ export default function App() {
       {/* 主体内容区：移动端上下布局，PC端左右布局max-w-7xl mx-auto  */}
       <main className="w-full mx-auto py-4 md:py-6 lg:px-4 py-4">
         {/* <main className="flex-1 flex flex-col md:flex-row overflow-hidden print:overflow-visible relative"> */}
+        {/* 根据 activePage 状态切换显示简历编辑器或分析模块 */}
         {activePage === "analysis" ? (
-          <AnalysisModule resumeData={resumeData} />
+          // 分析模块，接收简历数据和任务状态回调函数，任务状态回调函数示例：onTaskStarted、onTaskProgress、onTaskComplete
+          // 通过这些回调函数，分析模块可以通知父组件当前AI任务的状态，父组件再更新背景任务列表和UI显示
+          <AnalysisModule
+            resumeData={resumeData}
+            onTaskStarted={(task) => addBackgroundTask({
+              id: task.id,
+              title: task.title,
+              status: 'running',
+              message: '任务正在启动',
+            })}
+            onTaskProgress={(taskId, status, message) => updateBackgroundTask(taskId, status as any, message)}
+            onTaskComplete={(taskId, success, message) => updateBackgroundTask(taskId, success ? 'completed' : 'failed', message)}
+            onStartBackgroundTask={startBackgroundTask}
+            runningTasksCount={runningTasksCount}
+          />
         ) : (
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden print:overflow-visible relative">
             {/* 编辑器区域 */}
@@ -908,6 +1055,57 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* 背景任务面板，用于显示正在运行的后台任务 */}
+      {backgroundTasks.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 w-72">
+          <button
+            className="w-full rounded-xl bg-blue-600 text-white px-3 py-2 text-sm font-medium shadow-lg hover:bg-blue-700"
+            onClick={() => setTaskPanelOpen((prev) => !prev)}
+          >
+            {taskPanelOpen ? '收起任务' : `当前任务：${runningTasksCount} 正在运行`}
+          </button>
+          {taskPanelOpen && (
+            <div className="mt-2 rounded-xl bg-white border border-gray-200 shadow-lg overflow-hidden">
+              <div className="p-2 text-xs text-gray-500 border-b border-gray-100">任务状态</div>
+              <div className="max-h-56 overflow-y-auto">
+                {backgroundTasks.map((task) => (
+                  <div key={task.id} className="p-2 border-b border-gray-100">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-xs font-medium text-gray-700">{task.title}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: task.status === 'running' ? '#34D399' : task.status === 'completed' ? '#3B82F6' : '#EF4444' }}>
+                          {task.status}
+                        </span>
+                        {task.status !== 'running' && (
+                          <button
+                            className="text-red-500 hover:text-red-700 text-xs"
+                            onClick={() => removeBackgroundTask(task.id)}
+                          >
+                            删除
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-1">{task.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 确认离开对话框 */}
+      <ConfirmDialog
+        isOpen={leaveConfirm?.active ?? false}
+        title="正在执行 AI 任务"
+        message="AI任务仍在后台执行，离开后将生成悬浮任务窗口供查看。确认离开吗？"
+        confirmText="离开并查看任务"
+        cancelText="继续留在当前页面"
+        onConfirm={handleConfirmLeave}
+        onCancel={handleCancelLeave}
+      />
 
       <AuthModal
         isOpen={isAuthModalOpen}
