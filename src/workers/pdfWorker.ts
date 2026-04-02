@@ -42,7 +42,23 @@ self.onmessage = async (e) => {
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) throw new Error("Failed to get canvas context");
 
-      ctx.fillStyle = "#ffffff";
+      // 动态背景色：如果传入了透明背景（默认白色），尝试从图像近似取色；否则保留图片原背景。
+      let bgColor = "#ffffff";
+      try {
+        const sampleCanvas = new OffscreenCanvas(1, 1);
+        const sampleCtx = sampleCanvas.getContext("2d");
+        if (sampleCtx) {
+          sampleCtx.drawImage(bitmap, 0, 0, 1, 1);
+          const [r, g, b, a] = sampleCtx.getImageData(0, 0, 1, 1).data;
+          if (a > 10) {
+            bgColor = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+          }
+        }
+      } catch (err) {
+        // 采样失败时保留默认白色
+      }
+
+      ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
       ctx.drawImage(bitmap, 0, 0);
 

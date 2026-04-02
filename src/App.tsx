@@ -354,7 +354,7 @@ export default function App() {
           }
         });
 
-        // 3. 临时样式修改
+        // 3. 临时样式修改（包括背景色修复）
         const originalStyles = {
           overflow: element.style.overflow,
           width: element.style.width,
@@ -363,7 +363,15 @@ export default function App() {
           height: element.style.height,
           maxHeight: element.style.maxHeight,
           transform: element.style.transform,
+          backgroundColor: element.style.backgroundColor,
         };
+
+        const computedBackground = window.getComputedStyle(element).backgroundColor;
+        if (computedBackground && computedBackground !== 'rgba(0, 0, 0, 0)') {
+          element.style.backgroundColor = computedBackground;
+        } else {
+          element.style.backgroundColor = '#ffffff';
+        }
 
         element.style.overflow = "visible";
         element.style.width = "800px";
@@ -391,7 +399,7 @@ export default function App() {
         // 4. 关键修复：优化html2canvas配置，确保图片正常渲染
         const canvas = await htmlToImage.toCanvas(element, {
           pixelRatio: 2,
-          backgroundColor: "#ffffff",
+          backgroundColor: element.style.backgroundColor || "#ffffff",
           width: targetWidth,
           height: targetHeight,
           windowWidth: targetWidth,
@@ -564,7 +572,15 @@ export default function App() {
           height: element.style.height,
           maxHeight: element.style.maxHeight,
           transform: element.style.transform,
+          backgroundColor: element.style.backgroundColor,
         };
+
+        const computedBackground = window.getComputedStyle(element).backgroundColor;
+        if (computedBackground && computedBackground !== 'rgba(0, 0, 0, 0)') {
+          element.style.backgroundColor = computedBackground;
+        } else {
+          element.style.backgroundColor = '#ffffff';
+        }
 
         element.style.overflow = "visible";
         element.style.width = "800px";
@@ -579,7 +595,7 @@ export default function App() {
         // 3. 生成长图 (主线程仅负责截图)
         const canvas = await htmlToImage.toCanvas(element, {
           pixelRatio: 3, // 视网膜级别清晰度
-          backgroundColor: "#ffffff",
+          backgroundColor: element.style.backgroundColor || "#ffffff",
           width: 800,
           height: targetHeight,
           style: {
@@ -1062,7 +1078,7 @@ export default function App() {
 
             {/* 预览区域 */}
             <div
-              className="w-full lg:w-1/2 h-1/2 md:h-full overflow-y-auto bg-gray-200 print:w-full print:h-auto print:overflow-visible relative p-4"
+              className="w-full lg:w-1/2 h-1/2 md:h-full overflow-y-auto bg-gray-200 print:w-full print:h-auto print:overflow-visible print:p-0 relative p-4"
               id="preview-container"
             >
               <ResumePreview

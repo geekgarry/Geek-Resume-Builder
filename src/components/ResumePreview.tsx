@@ -818,8 +818,8 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
 
   // 模板 4: PPT 风格
   const renderTemplate4 = () => (
-    // 去掉最外层div class中的relative后面的overflow-hidden，以允许背景装饰元素超出边界显示
-    <div className="bg-slate-900 text-white font-sans w-full max-w-[960px] aspect-[16/9] mx-auto p-10 shadow-2xl print:shadow-none print:m-0 relative flex flex-col">
+    // 取消固定纵横比、取消内部滚动条，内容自适应高度
+    <div className="bg-slate-900 text-white font-sans w-full overflow-hidden max-w-[960px] mx-auto p-10 shadow-2xl print:shadow-none print:m-0 relative flex flex-col">
       {/* 背景装饰 */}
       <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[150%] bg-gradient-to-bl from-blue-600/30 to-purple-600/10 transform rotate-12 skew-x-12 pointer-events-none"></div>
       <div className="absolute bottom-[-20%] left-[-10%] w-[40%] h-[60%] bg-gradient-to-tr from-teal-500/20 to-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -844,20 +844,20 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
 
       {/* 内容区域 (两列布局) */}
       <div className="flex gap-8 flex-1 relative z-10">
-        {/* 左列 去掉slice(0, 2)截取 */}
-        <div className="w-1/2 flex flex-col gap-6 overflow-y-auto pr-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/20">
+        {/* 左列：不滚动，内容全显 */}
+        <div className="w-1/2 flex flex-col gap-6 pr-4">
           {data.basics.summary && (
             <section>
-              <h2 className="text-xl font-bold text-blue-400 mb-2 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-blue-500 rounded"></span> Profile</h2>
-              <p className="text-sm text-gray-300 leading-relaxed bg-white/5 p-4 rounded-lg border border-white/10">{data.basics.summary}</p>
+              <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-white rounded"></span> Profile</h2>
+              <p className="text-sm text-gray-100 leading-relaxed bg-white/10 p-4 rounded-lg border border-white/20">{data.basics.summary}</p>
             </section>
           )}
           
           {/* 求职意向 */}
           {data.jobIntention && (data.jobIntention.targetJob || data.jobIntention.targetCity || data.jobIntention.expectedSalary) && (
             <section>
-              <h2 className="text-xl font-bold text-blue-400 mb-2 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-blue-500 rounded"></span> Job Intention</h2>
-              <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+              <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-white rounded"></span> Job Intention</h2>
+              <div className="bg-white/10 p-4 rounded-lg border border-white/20">
                 {data.jobIntention.targetJob && <div><strong className="text-blue-300">Target Job:</strong> {data.jobIntention.targetJob}</div>}
                 {data.jobIntention.targetCity && <div><strong className="text-blue-300">Target City:</strong> {data.jobIntention.targetCity}</div>}
                 {data.jobIntention.expectedSalary && <div><strong className="text-blue-300">Expected Salary:</strong> {data.jobIntention.expectedSalary}</div>}
@@ -875,8 +875,8 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
                       <h3 className="font-bold text-lg text-white">{w.position}</h3>
                       <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">{w.duration}</span>
                     </div>
-                    <div className="text-blue-300 text-sm mb-2">{w.company}</div>
-                    <p className="text-xs text-gray-400 line-clamp-3">{w.description}</p>
+                    <div className="text-white text-sm mb-2">{w.company}</div>
+                    <p className="text-sm text-gray-200">{w.description}</p>
                   </div>
                 ))}
               </div>
@@ -886,7 +886,7 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
           {/* 获奖情况 */}
           {data.awards && data.awards.filter(a => !a.isHidden).length > 0 && (
             <section>
-              <h2 className="text-xl font-bold text-yellow-400 mb-3 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-yellow-500 rounded"></span> Awards</h2>
+              <h2 className="text-xl font-bold text-white mb-3 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-white rounded"></span> Awards</h2>
               <div className="space-y-4">
                 {data.awards.filter(a => !a.isHidden).map(a => (
                   <div key={a.id} className="bg-white/5 p-4 rounded-lg border border-white/10 border-l-4 border-l-yellow-500">
@@ -902,8 +902,8 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
           )}
         </div>
 
-        {/* 右列 */}
-        <div className="w-1/2 flex flex-col gap-6 overflow-y-auto pr-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/20">
+        {/* 右列：不滚动，内容全显 */}
+        <div className="w-1/2 flex flex-col gap-6 pr-4">
           {data.education.length > 0 && (
             <section>
               <h2 className="text-xl font-bold text-teal-400 mb-3 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-teal-500 rounded"></span> Education</h2>
@@ -929,7 +929,7 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
                   <div key={p.id} className="bg-white/5 p-3 rounded-lg border border-white/10 border-l-4 border-l-purple-500">
                     <div className="font-bold text-white mb-1">{p.name}</div>
                     <div className="text-xs text-purple-300 mb-1">{p.technologies}</div>
-                    <p className="text-xs text-gray-400 line-clamp-2">{p.description}</p>
+                    <p className="text-xs text-gray-300 line-clamp-15">{p.description}</p>
                   </div>
                 ))}
               </div>
