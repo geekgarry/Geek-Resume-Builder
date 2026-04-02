@@ -93,7 +93,7 @@ export function AnalysisModule({
         text: jobText,
         fileData,
         mimeType,
-        resumeData: type === 'match' ? resumeData : undefined
+        resumeData: type === 'match' ? resumeData : undefined // 只有在匹配分析时才传递简历数据，岗位分析时不需要简历数据
       });
       setAnalysisResult(result);
       sessionStorage.setItem('last_analysis_result', JSON.stringify({jobText,analysisResult: result}));
@@ -120,7 +120,7 @@ export function AnalysisModule({
             text: jobText,
             fileData,
             mimeType,
-            resumeData: type === 'match' ? resumeData : undefined
+            resumeData: type === 'match' ? resumeData : undefined // 只有在匹配分析时才传递简历数据，岗位分析时不需要简历数据
         }, (chunk) => {
           accumulatedText += chunk;
           callback(accumulatedText); // 每次收到新片段就更新 UI
@@ -147,7 +147,8 @@ export function AnalysisModule({
       return alert('已有AI任务正在进行，请等待完成或稍后再试');
     }
 
-    setLoadingType('generate');
+    // --- IGNORE --- 生成新简历的任务会在 Worker 中执行，Worker 中的状态更新通过 onTaskProgress 回调函数来实现，因此在这里不需要直接设置 loadingType，而是通过任务状态来控制按钮的禁用和加载状态。
+    // setLoadingType('generate');
 
     // 生成一个唯一的任务ID，并通过 onStartBackgroundTask 将任务信息和必要的输入数据传递给父组件，由父组件来启动 Worker 执行 AI 生成新简历的任务
     // 任务ID可以用来在父组件中追踪这个任务的状态，并在任务完成后更新 UI 或者通知用户
@@ -226,7 +227,9 @@ export function AnalysisModule({
               disabled={loadingType !== null}
               className='flex item-center gap-2 bg-green-600 text-white px-6 py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors'
             >
-              {loadingType === 'generate' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+              {/* 这里不需要直接根据 loadingType 来显示加载状态，因为 AI 生成新简历的任务是在 Worker 中执行的，loadingType 主要用于控制分析按钮的状态。AI 生成新简历的按钮状态应该根据当前是否有 AI 任务在运行来控制，而不是直接根据 loadingType。 */}
+              {/* {loadingType === 'generate' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />} */}
+              <Sparkles size={18} />
               优化生成AI新简历
             </button>
           </div>

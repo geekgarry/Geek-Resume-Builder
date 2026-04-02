@@ -29,6 +29,11 @@ import {
   ChevronRight,
   FileText,
   FileIcon,
+  List,
+  ListCollapseIcon,
+  ListEndIcon,
+  ListChevronsDownUpIcon,
+  ListChevronsUpDownIcon,
 } from "lucide-react";
 
 import * as htmlToImage from "html-to-image";
@@ -75,6 +80,7 @@ export default function App() {
     active: boolean;
   } | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const templateRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const runningTasksCount = backgroundTasks.filter((t) => t.status === 'running').length;
 
@@ -181,6 +187,18 @@ export default function App() {
   useEffect(() => {
     if (runningTasksCount > 0) setTaskPanelOpen(true);
   }, [runningTasksCount]);
+
+  // 模板 modal 打开或当前模板切换时自动滚动至当前模板可见位置
+  useEffect(() => {
+    if (isTemplateModalOpen) {
+      const target = templateRefs.current[currentTemplate];
+      if (target) {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 80);
+      }
+    }
+  }, [isTemplateModalOpen, currentTemplate]);
 
   // 监听 Worker 消息，更新任务状态
   useEffect(() => {
@@ -393,7 +411,7 @@ export default function App() {
             overflow: "visible",
           },
           // 修复：处理图片跨域的特殊配置
-          onclone: (clonedDoc) => {
+          onclone: (clonedDoc: Document) => {
             // 确保克隆的元素中的图片也有crossOrigin属性
             const clonedImages = clonedDoc.querySelectorAll("img");
             clonedImages.forEach((img) => {
@@ -697,7 +715,7 @@ export default function App() {
                 className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-indigo-100 transition-colors text-sm md:text-sm font-medium"
               >
                 <LayoutTemplate size={18} />
-                <span className="hidden md:inline">更换模板</span>
+                <span className="hidden md:inline">模板</span>
               </button>
 
               <button
@@ -712,7 +730,7 @@ export default function App() {
                   <Download size={16} />
                 )}
                 <span className="hidden sm:inline">
-                  {isExporting ? "生成中..." : "导出 PDF"}
+                  {isExporting ? "生成中..." : "导出"}
                 </span>
               </button>
             </div>
@@ -887,6 +905,7 @@ export default function App() {
             <div className="p-4 md:p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-4">
               {templates.map((t) => (
                 <button
+                  ref={(el) => { templateRefs.current[t.id] = el; }}
                   disabled={t.isVip && !currentUser}
                   key={t.id}
                   onClick={() => {
@@ -1036,7 +1055,7 @@ export default function App() {
                 <ResumeEditor
                   data={resumeData}
                   onChange={handleResumeChange}
-                  template={templates.find((t) => t.id === currentTemplate)}
+                  template={templates.find((t) => t.id === currentTemplate)!}
                 />
               </div>
             </div>
@@ -1049,7 +1068,7 @@ export default function App() {
               <ResumePreview
                 data={resumeData}
                 templateId={currentTemplate}
-                template={templates.find((t) => t.id === currentTemplate)}
+                template={templates.find((t) => t.id === currentTemplate)!}
               />
             </div>
           </div>
@@ -1058,19 +1077,24 @@ export default function App() {
 
       {/* 背景任务面板，用于显示正在运行的后台任务 */}
       {backgroundTasks.length > 0 && (
-        <div className="fixed bottom-4 right-4 z-50 w-72">
-          <button
-            className="w-full rounded-xl bg-blue-600 text-white px-3 py-2 text-sm font-medium shadow-lg hover:bg-blue-700"
-            onClick={() => setTaskPanelOpen((prev) => !prev)}
-          >
-            {taskPanelOpen ? '收起任务' : `当前任务：${runningTasksCount} 正在运行`}
-          </button>
+        <div className="fixed bottom-4 right-4 z-50 w-auto">
+          <div className="w-full text-right">
+            <button
+              className="w-auto rounded-xl bg-blue-600 text-white px-3 py-2 text-sm font-medium shadow-lg hover:bg-blue-700"
+              onClick={() => setTaskPanelOpen((prev) => !prev)}
+              title={taskPanelOpen ? '点击关闭任务列表' : '点击展开任务列表'}
+            >
+              {/* {taskPanelOpen ? '收起任务' : `当前任务：${runningTasksCount} 正在运行`} */}
+              {/* <List size={16} /> */}
+              {taskPanelOpen ? <ListChevronsDownUpIcon size={16} /> : <ListChevronsUpDownIcon size={16} />}
+            </button>
+          </div>
           {taskPanelOpen && (
-            <div className="mt-2 rounded-xl bg-white border border-gray-200 shadow-lg overflow-hidden">
+            <div className="w-72 mt-2 rounded-xl bg-white border border-gray-200 shadow-lg overflow-hidden">
               <div className="p-2 text-xs text-gray-500 border-b border-gray-100">任务状态</div>
               <div className="max-h-56 overflow-y-auto">
                 {backgroundTasks.map((task) => (
-                  <div key={task.id} className="p-2 border-b border-gray-100">
+                  <div key={task.id} className="p-2 border-b border-gray-100" title={`状态: ${task.status}，详情: ${task.message}`}>
                     <div className="flex justify-between items-center gap-2">
                       <span className="text-xs font-medium text-gray-700">{task.title}</span>
                       <div className="flex items-center gap-1">

@@ -34,8 +34,8 @@ self.onmessage = async (e: MessageEvent) => {
         text: payload.jobText,
         fileData: payload.fileData,
         mimeType: payload.mimeType,
-        resumeData: payload.resumeData,
-        token: payload.token,
+        resumeData: payload.resumeData, // 直接传递原始的简历数据对象，AI 服务端会根据这个数据进行优化生成新的简历内容
+        token: payload.token, // 传递 token 以便在 Worker 中也能进行认证请求
       });
       const aiOptimizedResume: ResumeData = JSON.parse(optimizedResume);
       // console.log("AI优化生成的新简历内容：", aiOptimizedResume);
