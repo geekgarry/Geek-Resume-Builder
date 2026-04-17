@@ -34,6 +34,8 @@ import {
   ListEndIcon,
   ListChevronsDownUpIcon,
   ListChevronsUpDownIcon,
+  CodeXml,
+  FileCode
 } from "lucide-react";
 
 import * as htmlToImage from "html-to-image";
@@ -657,6 +659,113 @@ export default function App() {
     }
   };
 
+  // 在你的 App.tsx 中，与 handleExportPDF 放在一起
+  const handleExportHTML = async () => {
+    setIsExporting(true);
+    try {
+      const container = document.getElementById('resume-print-area') ||
+          document.getElementById("preview-container");
+      if (!container) throw new Error('Container not found');
+      
+      // 获取简历本身的 DOM 内容
+      const element = container.querySelector('div')?.cloneNode(true) as HTMLElement;
+      if (!element) throw new Error('Element not found');
+
+      // 1. 提取所有的 CSS 样式表 (内部和外部)
+      let styles = '';
+      const styleElements = document.querySelectorAll('style');
+      styleElements.forEach(el => {
+        styles += el.outerHTML + '\n';
+      });
+
+      // 尝试将外链 CSS 转换为内联 <style> (如果支持跨域)
+      const linkElements = document.querySelectorAll('link[rel="stylesheet"]');
+      for (const link of Array.from(linkElements)) {
+        try {
+          const href = (link as HTMLLinkElement).href;
+          if (href) {
+            const res = await fetch(href);
+            const cssText = await res.text();
+            styles += `<style>\n${cssText}\n</style>\n`;
+          }
+        } catch (e) {
+          console.warn('Fallback: keep link for', link.outerHTML);
+          styles += link.outerHTML + '\n';
+        }
+      }
+
+      // 2. 转换所有的图片为 base64 格式，确保独立/离线打开时图片不会丢失
+      const images = element.querySelectorAll('img');
+      for (const img of Array.from(images)) {
+        try {
+          if (img.src.startsWith('blob:') || img.src.startsWith('http')) {
+            const res = await fetch(img.src);
+            const blob = await res.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            img.src = base64;
+          }
+        } catch (e) {
+          console.warn('Failed to inline image', img.src);
+        }
+      }
+
+      // 3. 构建完整的单文件 HTML
+      const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="zh-CN">
+      <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${resumeData?.basics?.name || '简历'} - resume</title>
+      ${styles}
+      <style>
+        /* 独立打开时背景色与居中优化 */
+        body {
+          background-color: #525659; /* 模仿 PDF 阅读器深灰色底底 */
+          display: flex;
+          justify-content: center;
+          padding: 40px 0;
+          margin: 0;
+          font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        #resume-print-area-wrapper {
+          background-color: white;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+          border-radius: 4px;
+          overflow: hidden;
+          width: 800px;
+          min-height: 1131px;
+          margin: 0 auto;
+        }
+      </style>
+      </head>
+      <body>
+      <div id="resume-print-area-wrapper">
+        ${element.outerHTML}
+      </div>
+      </body>
+      </html>`;
+
+      // 4. 触发下载
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${resumeData?.basics?.name || '简历'}-${new Date().getTime()}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating HTML:', error);
+      alert('导出 HTML 失败，请稍后重试');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleDownloadWord = () => {
     alert("正在开发中，敬请期待！");
     // const container = document.getElementById('resume-print-area') || document.getElementById('preview-container');
@@ -1012,13 +1121,14 @@ export default function App() {
 
               {!isMobile && (
                 <button
-                  onClick={handleDownloadWord}
+                  onClick={handleExportHTML}
                   className="flex flex-col items-center justify-center gap-3 p-6 border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all group"
                 >
                   <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <FileIcon size={24} />
+                    {/* <FileIcon size={24} /> */}
+                    <FileCode size={24} />
                   </div>
-                  <span className="font-medium text-gray-700">Word 文档</span>
+                  <span className="font-medium text-gray-700">Html 简历</span>
                 </button>
               )}
             </div>
