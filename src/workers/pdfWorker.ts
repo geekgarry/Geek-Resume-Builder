@@ -1,5 +1,23 @@
 import jsPDF from "jspdf";
 
+// 由于 jsPDF 对 JPEG 的支持更好，我们在这里将 PNG 转换为 JPEG 来提高性能和兼容性
+// 这个函数将 OffscreenCanvas 转换为 JPEG 格式的 Data URL
+const convertCanvasToJpegDataUrl = async (
+  canvas: OffscreenCanvas,
+  quality = 0.8,
+) => {
+  const blob = await canvas.convertToBlob({
+    type: "image/jpeg",
+    quality,
+  });
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 self.onmessage = async (e) => {
   const { imgData, pdfWidth, pdfHeight, marginY, isPaginated, fileName } =
     e.data;
@@ -315,7 +333,7 @@ self.onmessage = async (e) => {
                 reader.readAsDataURL(topRowBlob);
               });
               // 将 1px 高的图像拉伸填充整个顶部 margin
-              pdf.addImage(topRowDataUrl, "PNG", 0, 0, pdfWidth, marginY);
+              pdf.addImage(topRowDataUrl, "PNG", 0, 0, pdfWidth, marginY, "", "FAST");
             }
           }
 
@@ -353,6 +371,8 @@ self.onmessage = async (e) => {
                   marginY + pdfSliceHeight,
                   pdfWidth,
                   remainingHeight,
+                  "",
+                  "FAST",
                 );
               }
             }
@@ -366,6 +386,8 @@ self.onmessage = async (e) => {
             marginY,
             pdfWidth,
             pdfSliceHeight,
+            "",
+            "FAST",
           );
         }
 
